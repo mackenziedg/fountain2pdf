@@ -1,137 +1,204 @@
 import re
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.units import inch
 
+class FountainToPDF:
 
-def tokenize(doc):
+    def __init__(self, path=None):
+        if path is not None:
+            self.read_file(path)
 
-    def is_scene_heading(line, prev, fol):
-        return line.isupper() and re.match("(^INT.|^EXT.)", line) and not (prev or fol)
+        self.styles = {
+            'ACTION': ParagraphStyle(
+                'ACTION',
+                fontName='Courier',
+                fontSize=12,
+                allowWidows=1,
+                allowOrphans=1,
+                leftIndent=0,
+                rightIndent=0,
+                alignment=TA_LEFT
+            ),
+            'CENTERED': ParagraphStyle(
+                'CENTERED',
+                fontName='Courier',
+                fontSize=12,
+                leftIndent=0,
+                rightIndent=0,
+                alignment=TA_CENTER
+            ),
+            'SCENE': ParagraphStyle(
+                'SCENE',
+                fontName='Courier',
+                fontSize=12,
+                leftIndent=0,
+                rightIndent=0,
+                alignment=TA_LEFT
+            ),
+            'CHARACTER': ParagraphStyle(
+                'CHARACTER',
+                fontName='Courier',
+                fontSize=12,
+                leftIndent=2.0*inch,
+                rightIndent=0,
+                alignment=TA_LEFT
+            ),
+            'DIALOG': ParagraphStyle(
+                'DIALOG',
+                fontName='Courier',
+                fontSize=12,
+                leftIndent=1.0*inch,
+                rightIndent=1.5*inch,
+                alignment=TA_LEFT
+            ),
+            'PARENTHETICAL': ParagraphStyle(
+                'PARENTHETICAL',
+                fontName='Courier',
+                fontSize=12,
+                leftIndent=1.5*inch,
+                rightIndent=2.0*inch,
+                alginment=TA_LEFT
+            ),
+            'TRANSITION': ParagraphStyle(
+                'TRANSITION',
+                fontName='Courier',
+                fontSize=12,
+                leftIndent=4.0*inch,
+                rightIndent=0,
+                alignment=TA_LEFT
+            )
+        }   
 
-    def is_character(line, prev, fol):
-        return line.isupper() and not line.startswith('>') and (not prev and fol)
+    def read_file(self, path):
+        with open(path) as f:
+            lines = f.readlines()
+        self.lines = [line.strip("\n") for line in lines]
+        self.lines = self._tokenize()
 
-    def is_transition(line, prev, fol):
-        return line.isupper() and line.endswith("TO:") and not (prev or fol)
+    def _tokenize(self):
 
-    def is_section_header(line, prev, fol):
-        return line.startswith("#")
+        def is_scene_heading(line, prev, fol):
+            return line.isupper() and re.match("(^INT.|^EXT.)", line) and not (prev or fol)
 
-    tokens = []
+        def is_character(line, prev, fol):
+            return line.isupper() and not line.startswith('>') and (not prev and fol)
 
-    dialog_flag = False
-    for ix, line in enumerate(doc):
-        token = None
-        # Process forced elements first
-        if re.match("^@", line):
-            token = "CHARACTER"
-        elif re.match("^\.", line):
-            token = "SCENE"
-        elif re.match("^!", line):
-            token = "ACTION"
-        elif re.match("^~", line):
-            token = "LYRIC"
-        elif re.match("^\(", line):
-            token = "PARENTHETICAL"
-        elif re.match("\[\[.*\]\]", line):
-            token = "NOTE"
-        elif re.match("^=", line):
-            token = "SYNOPSE"
+        def is_transition(line, prev, fol):
+            return line.isupper() and line.endswith("TO:") and not (prev or fol)
 
-        # Get previous and following line, since most elements depend
-        # on whether some combo of these are empty
-        prev = doc[ix - 1] if ix > 0 else ''
-        fol = doc[ix + 1] if ix < len(doc) - 1 else ''
+        def is_section_header(line, prev, fol):
+            return line.startswith("#")
 
-        # Strip the lines, since only action elements can have leading whitespace
-        stline = line.strip()
-        stprev = prev.strip()
-        stfol = fol.strip()
+        def is_centered(line, prev, fol):
+            return line.startswith(">") and line.endswith("<")
 
-        # If we had a forced token, skip the redundant checking
-        if token is not None:
-            pass
+        def is_right_aligned(line, prev, fol):
+            return line.startswith(">") and not line.endswith("<")
 
-        # otherwise, check away!
-        elif not line:
-            dialog_flag = False
-            token = ''
-        elif is_scene_heading(stline, stprev, stfol):
-            token = "SCENE"
-        elif is_character(stline, stprev, stfol):
-            token = "CHARACTER"
-        elif is_transition(stline, stprev, stfol):
-            token = "TRANSITION"
-        elif is_section_header(stline, stprev, stfol):
-            token = "SECTION"
-        else:
-            token = "DIALOG" if dialog_flag else "ACTION"
+        def is_parenthetical(line, prev, fol):
+            return line.startswith("(") and line.endswith(")")
+            
+        tokens = []
 
-        # Only action lines have leading whitespace
-        if token != "ACTION":
-            line = stline
+        dialog_flag = False
+        for ix, line in enumerate(self.lines):
+            token = None
+            # Process forced elements first
+            if re.match("^@", line):
+                token = "CHARACTER"
+            elif re.match("^\.", line):
+                token = "SCENE"
+            elif re.match("^!", line):
+                token = "ACTION"
+            elif re.match("^~", line):
+                token = "LYRIC"
+            elif re.match("\[\[.*\]\]", line):
+                token = "NOTE"
+            elif re.match("^=", line):
+                token = "SYNOPSE"
+            elif re.match(">.*[^<]$", line):
+                token = "TRANSITION"
 
-        # Characters have dialog following them
-        if token == "CHARACTER":
-            if line.endswith("^"):
-                token = "CHARACTERDD"
-            dialog_flag = True
+            if token is not None:
+                line = line[1:]
 
-        tokens.append((line, token))
+            # Get previous and following line, since most elements depend
+            # on whether some combo of these are empty
+            prev = self.lines[ix - 1] if ix > 0 else ''
+            fol = self.lines[ix + 1] if ix < len(self.lines) - 1 else ''
 
-    return tokens
+            # Strip the lines, since only action elements can have leading whitespace
+            stline = line.strip()
+            stprev = prev.strip()
+            stfol = fol.strip()
 
+            # If we had a forced token, skip the redundant checking
+            # TODO: Combine the forced-token-checking to avoid stripping every line no matter what
+            if token is not None:
+                pass
 
-def test():
-    # Test scene headings
-    assert tokenize(["", "INT. WAREHOUSE - DAY", ""])[1][1] == "SCENE"
-    assert tokenize(["", "INT. warehouse - DAY", ""])[1][1] == "ACTION"
-    assert tokenize(["", "INT. WAREHOUSE - DAY", "t"])[1][1] == "CHARACTER" 
-    assert tokenize(["", ".INT. WAREHOUSE - DAY", "t"])[1][1] == "SCENE"
+            # otherwise, check away!
+            elif not line:
+                dialog_flag = False
+                token = ''
+            elif is_scene_heading(stline, stprev, stfol):
+                token = "SCENE"
+            elif is_character(stline, stprev, stfol):
+                token = "CHARACTER"
+            elif is_transition(stline, stprev, stfol):
+                token = "TRANSITION"
+            elif is_section_header(stline, stprev, stfol):
+                token = "SECTION"
+            elif is_parenthetical(stline, stprev, stfol):
+                token = "PARENTHETICAL"
+            else:
+                token = "DIALOG" if dialog_flag else "ACTION"
 
-    # Test character names
-    assert tokenize(["", "JIM-BOB", "I'm Jim-Bob!"])[1][1] == "CHARACTER"
-    assert tokenize(["", "JIM-BOB", "I'm Jim-Bob!"])[2][1] == "DIALOG"
-    assert tokenize(["", "@JIM-McBOB", "I'm Jim-McBob!"])[1][1] == "CHARACTER"
-    assert tokenize(["", "JIM-McBOB", "I'm Jim-McBob!"])[1][1] == "ACTION"
+            # Only action lines have leading whitespace
+            if token != "ACTION":
+                line = stline
+            else:
+                if is_centered(line, prev, fol):
+                    line = line[1:-1].strip()
+                    token = "CENTERED"
 
-    # Test dialog
-    assert tokenize(["", "@JIM-McBOB", "I'm Jim-McBob!", "This is dialog."])[2][1] == "DIALOG"
-    assert tokenize(["", "JIM-BOB", "I'm Jim-Bob!", "This is dialog."])[2][1] == "DIALOG"
-    assert tokenize(["", "@JIM-McBOB", "I'm Jim-McBob!", "This is dialog."])[3][1] == "DIALOG"
-    assert tokenize(["", "@JIM-McBOB", "I'm Jim-McBob!", "", "This is action."])[4][1] == "ACTION"
-    assert tokenize(["", "@JIM-McBOB", "I'm Jim-McBob!", "  ", "This is dialog."])[4][1] == "DIALOG"
-    assert tokenize(["", "@JIM-McBOB", "I'm Jim-McBob!", "  ", "This is dialog."])[3][1] == "DIALOG"
-    assert tokenize(["", "@JIM-McBOB ^", "I'm Jim-McBob!"])[1][1] == "CHARACTERDD"
+                # TODO: Markdown-like formatting to come later
 
-    # Test centered text
-    assert tokenize(["", "> THE END <", ""])[1][1] == "ACTION"
-    assert tokenize(["", "@> THE END <", ""])[1][1] == "CHARACTER"
+            # Characters have dialog following them
+            if token == "CHARACTER":
+                # Add dual-dialog support later
+                # if line.endswith("^"):
+                    # token = "CHARACTERDD"
+                dialog_flag = True
 
-    # Test lyrics
-    assert tokenize(["", "~These are lyrics", ""])[1][1] == "LYRIC"
-    assert tokenize(["", "jfkd~These are not lyrics", ""])[1][1] == "ACTION"
+            tokens.append((line, token))
 
-    # Test parentheticals
-    assert tokenize(["", "(over the hill)", ""])[1][1] == "PARENTHETICAL"
+        return tokens
 
-    # Test non-printing text
-    assert tokenize(["", "[[this is a note]]", ""])[1][1] == "NOTE"
-    assert tokenize(["", "= this is a synopse", ""])[1][1] == "SYNOPSE"
-    assert tokenize(["", "# this is an H1", ""])[1][1] == "SECTION"
-    assert tokenize(["", "####### this is a very deep heading", ""])[1][1] == "SECTION"
+    def generatePDF(self, path):
 
+        def addPageNums(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Courier',12)
+            canvas.drawString(7.5*inch, 10.5*inch, "{}.".format(doc.page))
+            canvas.restoreState()
 
-    return "All tests passed."
+        doc = SimpleDocTemplate(path, leftMargin=1.5*inch, rightMargin=inch, topMargin=inch, bottomMargin=inch, pagesize=letter)
+        emptyline = Spacer(1, (1/6)*inch)
+        story = []
+        for line in self.lines:
+            if line[1] not in ["SECTION", "SYNOPSE", "NOTE"]:
+                text = line[0]
+                token = line[1]
 
+                if not token:
+                    story.append(emptyline)
+                else:
+                    style = self.styles.get(token, 'ACTION')
+                    p = Paragraph(text, style)
+                    story.append(p)
 
-def main():
-    with open("../test.fountain", "r") as f:
-        lines = f.readlines()
-    lines = [line.strip('\n') for line in lines]
-
-    tokenized = tokenize(lines)
-    return tokenized
-
-
-if __name__ == '__main__':
-    print(test())
-    main()
+        doc.build(story, onLaterPages=addPageNums)
