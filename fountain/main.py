@@ -1,5 +1,6 @@
 import re
 
+
 def tokenize(doc):
 
     def is_scene_heading(line, prev, fol):
@@ -10,7 +11,10 @@ def tokenize(doc):
 
     def is_transition(line, prev, fol):
         return line.isupper() and line.endswith("TO:") and not (prev or fol)
-        
+
+    def is_section_header(line, prev, fol):
+        return line.startswith("#")
+
     tokens = []
 
     dialog_flag = False
@@ -49,13 +53,15 @@ def tokenize(doc):
         # otherwise, check away!
         elif not line:
             dialog_flag = False
-            token = "BLANK"
+            token = ''
         elif is_scene_heading(stline, stprev, stfol):
             token = "SCENE"
         elif is_character(stline, stprev, stfol):
             token = "CHARACTER"
         elif is_transition(stline, stprev, stfol):
             token = "TRANSITION"
+        elif is_section_header(stline, stprev, stfol):
+            token = "SECTION"
         else:
             token = "DIALOG" if dialog_flag else "ACTION"
 
@@ -72,6 +78,7 @@ def tokenize(doc):
         tokens.append((line, token))
 
     return tokens
+
 
 def test():
     # Test scene headings
@@ -103,7 +110,18 @@ def test():
     assert tokenize(["", "~These are lyrics", ""])[1][1] == "LYRIC"
     assert tokenize(["", "jfkd~These are not lyrics", ""])[1][1] == "ACTION"
 
+    # Test parentheticals
+    assert tokenize(["", "(over the hill)", ""])[1][1] == "PARENTHETICAL"
+
+    # Test non-printing text
+    assert tokenize(["", "[[this is a note]]", ""])[1][1] == "NOTE"
+    assert tokenize(["", "= this is a synopse", ""])[1][1] == "SYNOPSE"
+    assert tokenize(["", "# this is an H1", ""])[1][1] == "SECTION"
+    assert tokenize(["", "####### this is a very deep heading", ""])[1][1] == "SECTION"
+
+
     return "All tests passed."
+
 
 def main():
     with open("../test.fountain", "r") as f:
@@ -113,5 +131,7 @@ def main():
     tokenized = tokenize(lines)
     return tokenized
 
+
 if __name__ == '__main__':
+    print(test())
     main()

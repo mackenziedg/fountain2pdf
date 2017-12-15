@@ -1,0 +1,12 @@
+lxml==4.1.1
+numpy==1.13.3
+olefile==0.44
+pandas==0.21.1
+Pillow==4.3.0
+python-dateutil==2.6.1
+python-pptx==0.6.7
+pytz==2017.3
+reportgen==0.1.7
+seaborn==0.8.1
+six==1.11.0
+XlsxWriter==1.0.2
