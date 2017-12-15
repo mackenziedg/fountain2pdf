@@ -2,14 +2,23 @@ import re
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_LEFT, TA_CENTER 
 from reportlab.lib.units import inch
 
 class FountainToPDF:
 
     def __init__(self, path=None):
+        """Loads in a .fountain file from a path and tokenizes it.
+
+        Parameters
+        ----------
+        path -- String path to .fountain file to be converted. (optional)
+        """
+
         if path is not None:
             self.read_file(path)
+        else:
+            self.lines = None
 
         self.styles = {
             'ACTION': ParagraphStyle(
@@ -73,12 +82,32 @@ class FountainToPDF:
         }   
 
     def read_file(self, path):
+        """Reads in and tokenizes a .fountain file
+        
+        Parameters
+        ----------
+        path -- String file path to .fountain file to be converted
+        """
         with open(path) as f:
             lines = f.readlines()
         self.lines = [line.strip("\n") for line in lines]
-        self.lines = self._tokenize()
+        self.tokenized_lines = self._tokenize(self.lines)
 
-    def _tokenize(self):
+    def _tokenize(self, lines):
+        """Tokenizes lines of the read-in .fountain file.
+
+        Parameters
+        ----------
+        lines -- Array of strings where each string is the contents of one line
+
+        Returns
+        -------
+        tokens -- A list of (line, token) pairs for each line in the file
+        
+
+        The method for identifying each type of line was taken from https://fountain.io/syntax
+        It is current as of Fountain v1.1
+        """
 
         def is_scene_heading(line, prev, fol):
             return line.isupper() and re.match("(^INT.|^EXT.)", line) and not (prev or fol)
@@ -104,7 +133,7 @@ class FountainToPDF:
         tokens = []
 
         dialog_flag = False
-        for ix, line in enumerate(self.lines):
+        for ix, line in enumerate(lines):
             token = None
             # Process forced elements first
             if re.match("^@", line):
@@ -127,8 +156,8 @@ class FountainToPDF:
 
             # Get previous and following line, since most elements depend
             # on whether some combo of these are empty
-            prev = self.lines[ix - 1] if ix > 0 else ''
-            fol = self.lines[ix + 1] if ix < len(self.lines) - 1 else ''
+            prev = lines[ix - 1] if ix > 0 else ''
+            fol = lines[ix + 1] if ix < len(lines) - 1 else ''
 
             # Strip the lines, since only action elements can have leading whitespace
             stline = line.strip()
@@ -164,8 +193,7 @@ class FountainToPDF:
                 if is_centered(line, prev, fol):
                     line = line[1:-1].strip()
                     token = "CENTERED"
-
-                # TODO: Markdown-like formatting to come later
+                # TODO: Markdown-like text formatting (bold, italics etc.) to come later
 
             # Characters have dialog following them
             if token == "CHARACTER":
@@ -178,7 +206,15 @@ class FountainToPDF:
 
         return tokens
 
-    def generatePDF(self, path):
+    def generatePDF(self, path="out.pdf"):
+        """Create a .pdf file from the tokenized lines of the input .fountain file.
+        
+        Parameters
+        ----------
+        path -- String file path for the output file
+
+        The formatting rules were taken from https://www.writersstore.com/how-to-write-a-screenplay-a-guide-to-scriptwriting/
+        """
 
         def addPageNums(canvas, doc):
             canvas.saveState()
@@ -189,7 +225,7 @@ class FountainToPDF:
         doc = SimpleDocTemplate(path, leftMargin=1.5*inch, rightMargin=inch, topMargin=inch, bottomMargin=inch, pagesize=letter)
         emptyline = Spacer(1, (1/6)*inch)
         story = []
-        for line in self.lines:
+        for line in self.tokenized_lines:
             if line[1] not in ["SECTION", "SYNOPSE", "NOTE"]:
                 text = line[0]
                 token = line[1]

@@ -1,0 +1,7 @@
+*.pyc
+*~
+fountain_env/
+fountainutils/__pycache__/
+*.pdf
+*.html
+*.fountain
