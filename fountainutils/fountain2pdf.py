@@ -47,7 +47,9 @@ class FountainToPDF:
             self.fontname_bold = 'Courier Prime Bold'
             self.fontname_italic = 'Courier Prime Italic'
             self.fontname_bold_italic = 'Courier Prime Bold Italic'
+            pdfmetrics.registerFontFamily(self.fontname, normal=self.fontname, bold=self.fontname_bold, italic=self.fontname_italic, boldItalic=self.fontname_bold_italic)
             print("Using Courier Prime.")
+            
         except TTFError:
             self.fontname = 'Courier'
             self.fontname_bold = 'Courier'
@@ -400,7 +402,6 @@ class FountainToPDF:
                 text = line[0]
                 token = line[1]
 
-                print(line)
                 if not token:
                     story.append(emptyline)
                 else:
