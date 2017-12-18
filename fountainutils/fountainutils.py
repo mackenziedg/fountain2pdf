@@ -237,17 +237,32 @@ class FountainToPDF:
                     line = line[1:-1].strip()
                     token = "CENTERED"
 
-            bd_reg = re.compile(r"(([^\\]|^)\*\*.*?[^ \\]\*\*)")  # Looks for enclosing asterisks/underscores
-            fi = re.findall(bd_reg, line)
-            if fi:
-                line = '<b>' + fi[0][0].strip()[2:-2] + '</b>'
-            else:
-                it_reg = re.compile(r"(([^\\]|^)\*.*?[^ \\]\*)")  # Looks for enclosing asterisks/underscores
-                line = line.replace(r'\*', 'ESC_AST')
-                fi = re.findall(it_reg, line)
+            bi_reg = re.compile(r"([^\\]|^)(\*{3}.*?[^ \\]\*{3})")
+            bd_reg = re.compile(r"([^\\]|^)(\*{2}.*?[^ \\]\*{2})")
+            it_reg = re.compile(r"([^\\]|^)(\*.*[^ \\]\*)")
+            ul_reg = re.compile(r"([^\\]|^)(_.*[^ \\]_)")
+
+            regs = [bi_reg, bd_reg, it_reg, ul_reg]
+            subs = [
+                ['<b><i>', '</i></b>', 3],
+                ['<b>', '</b>', 2],
+                ['<i>', '</i>', 1],
+                ['<u>', '</u>', 1]
+            ]
+            reg_dict = dict(zip(regs, subs))
+
+            for reg in regs:
+                opening = reg_dict[reg][0]
+                closing = reg_dict[reg][1]
+                length = reg_dict[reg][2]
+
+                fi = re.findall(reg, line)
                 if fi:
-                    line = '<i>' + fi[0][0].strip()[1:-1] + '</i>'
-            
+                    print(fi)
+                    for match in fi:
+                        sub = match[1]
+                        formatted_sub = opening + sub[length:-length] + closing 
+                        line = line.replace(sub, formatted_sub)
 
             # Characters have dialog following them
             if token == "CHARACTER":
