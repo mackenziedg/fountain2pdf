@@ -6,7 +6,7 @@ from matplotlib.font_manager import findSystemFonts
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.enums import TA_LEFT, TA_CENTER 
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont, TTFError
@@ -56,9 +56,51 @@ class FountainToPDF:
             print("Courier Prime not found. Using Courier.")
             
         self.styles = {
+            'TITLE': ParagraphStyle(
+                'TITLE',
+                fontName=self.fontname,
+                fontSize=12,
+                alignment=TA_CENTER
+            ),
+
+            'CREDIT': ParagraphStyle(
+                'CREDIT',
+                fontName=self.fontname,
+                fontSize=12,
+                alignment=TA_CENTER
+            ),
+
+            'AUTHOR': ParagraphStyle(
+                'AUTHOR',
+                fontName=self.fontname,
+                fontSize=12,
+                alignment=TA_CENTER
+            ),
+
+            'SOURCE': ParagraphStyle(
+                'SOURCE',
+                fontName=self.fontname,
+                fontSize=12,
+                alignment=TA_CENTER
+            ),
+
+            'DRAFT_DATE': ParagraphStyle(
+                'DRAFT_DATE',
+                fontName=self.fontname,
+                fontSize=12,
+                alignment=TA_RIGHT
+            ),
+
+            'CONTACT': ParagraphStyle(
+                'CONTACT',
+                fontName=self.fontname,
+                fontSize=12,
+                alignment=TA_LEFT
+            ),
+
             'ACTION': ParagraphStyle(
                 'ACTION',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 allowWidows=1,
                 allowOrphans=1,
@@ -66,49 +108,55 @@ class FountainToPDF:
                 rightIndent=0,
                 alignment=TA_LEFT
             ),
+
             'CENTERED': ParagraphStyle(
                 'CENTERED',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 leftIndent=0,
                 rightIndent=0,
                 alignment=TA_CENTER
             ),
+
             'SCENE': ParagraphStyle(
                 'SCENE',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 leftIndent=0,
                 rightIndent=0,
                 alignment=TA_LEFT
             ),
+
             'CHARACTER': ParagraphStyle(
                 'CHARACTER',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 leftIndent=2.0*inch,
                 rightIndent=0,
                 alignment=TA_LEFT
             ),
+
             'DIALOG': ParagraphStyle(
                 'DIALOG',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 leftIndent=1.0*inch,
                 rightIndent=1.5*inch,
                 alignment=TA_LEFT
             ),
+
             'PARENTHETICAL': ParagraphStyle(
                 'PARENTHETICAL',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 leftIndent=1.5*inch,
                 rightIndent=2.0*inch,
                 alginment=TA_LEFT
             ),
+
             'TRANSITION': ParagraphStyle(
                 'TRANSITION',
-                fontName='Courier',
+                fontName=self.fontname,
                 fontSize=12,
                 leftIndent=4.0*inch,
                 rightIndent=0,
@@ -166,6 +214,43 @@ class FountainToPDF:
                     line = line.replace(sub, formatted_sub)
         return line
 
+    def _format_meta(self, meta):
+        """Formats metadata (ie. title, author etc.)
+
+        Parameters
+        ----------
+        meta -- List of metadata
+
+        Returns
+        -------
+        meta_out -- List of (string, token) values
+        """
+
+        # TODO: Not properly reading values with the data not on the same line as the token
+        meta_out = []
+        token_dict = {
+            'Title': 'TITLE',
+            'Author': 'AUTHOR',
+            'Credit': 'CREDIT',
+            'Source': 'SOURCE',
+            'Draft date': 'DRAFT_DATE',
+            'Contact': 'CONTACT'
+        }
+        current_token = None
+        data = []
+        for line in meta:
+            temp_token = current_token
+            current_token = token_dict.get(line.split(':')[0], current_token)
+            if temp_token != current_token and temp_token:
+                meta_out.append(('\n'.join([i.strip() for i in data if i]), temp_token))
+                data = []
+                line = line[len(current_token)+2:]
+                data.append(line)
+            else:
+                data.append(line)
+
+        return meta_out
+
     def _tokenize(self, lines):
         """Tokenizes lines of the read-in .fountain file.
 
@@ -215,7 +300,7 @@ class FountainToPDF:
                 continue
             elif (meta_flag and not line):
                 meta_flag = False
-                print(meta_info)
+                tokens = self._format_meta(meta_info)
                 continue
 
             # Process forced elements first
@@ -315,6 +400,7 @@ class FountainToPDF:
                 text = line[0]
                 token = line[1]
 
+                print(line)
                 if not token:
                     story.append(emptyline)
                 else:
