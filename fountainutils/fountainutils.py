@@ -125,6 +125,44 @@ class FountainToPDF:
         self.lines = [line.strip("\n") for line in lines]
         self.tokenized_lines = self._tokenize(self.lines)
 
+    def _format_line(self, line):
+        """Replaces Markdown-style formatting with HTML-style formatting for reportlab to use.
+       
+        Parameters
+        ----------
+        line -- A string corresponding to the current line
+
+        Returns
+        -------
+        line -- The same line with Markdown-style formatting swapped for HTML-style formatting
+        """
+        bi_reg = re.compile(r"([^\\]|^)(\*{3}.*?[^ \\]\*{3})")
+        bd_reg = re.compile(r"([^\\]|^)(\*{2}.*?[^ \\]\*{2})")
+        it_reg = re.compile(r"([^\\]|^)(\*.*[^ \\]\*)")
+        ul_reg = re.compile(r"([^\\]|^)(_.*[^ \\]_)")
+
+        regs = [bi_reg, bd_reg, it_reg, ul_reg]
+        subs = [
+            ['<b><i>', '</i></b>', 3],
+            ['<b>', '</b>', 2],
+            ['<i>', '</i>', 1],
+            ['<u>', '</u>', 1]
+        ]
+        reg_dict = dict(zip(regs, subs))
+
+        for reg in regs:
+            opening = reg_dict[reg][0]
+            closing = reg_dict[reg][1]
+            length = reg_dict[reg][2]
+
+            fi = re.findall(reg, line)
+            if fi:
+                for match in fi:
+                    sub = match[1]
+                    formatted_sub = opening + sub[length:-length] + closing 
+                    line = line.replace(sub, formatted_sub)
+        return line
+
     def _tokenize(self, lines):
         """Tokenizes lines of the read-in .fountain file.
 
@@ -237,32 +275,7 @@ class FountainToPDF:
                     line = line[1:-1].strip()
                     token = "CENTERED"
 
-            bi_reg = re.compile(r"([^\\]|^)(\*{3}.*?[^ \\]\*{3})")
-            bd_reg = re.compile(r"([^\\]|^)(\*{2}.*?[^ \\]\*{2})")
-            it_reg = re.compile(r"([^\\]|^)(\*.*[^ \\]\*)")
-            ul_reg = re.compile(r"([^\\]|^)(_.*[^ \\]_)")
-
-            regs = [bi_reg, bd_reg, it_reg, ul_reg]
-            subs = [
-                ['<b><i>', '</i></b>', 3],
-                ['<b>', '</b>', 2],
-                ['<i>', '</i>', 1],
-                ['<u>', '</u>', 1]
-            ]
-            reg_dict = dict(zip(regs, subs))
-
-            for reg in regs:
-                opening = reg_dict[reg][0]
-                closing = reg_dict[reg][1]
-                length = reg_dict[reg][2]
-
-                fi = re.findall(reg, line)
-                if fi:
-                    print(fi)
-                    for match in fi:
-                        sub = match[1]
-                        formatted_sub = opening + sub[length:-length] + closing 
-                        line = line.replace(sub, formatted_sub)
+            line = self._format_line(line)
 
             # Characters have dialog following them
             if token == "CHARACTER":

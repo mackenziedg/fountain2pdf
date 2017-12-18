@@ -12,8 +12,6 @@ Converts a Fountain file into a (more-or-less) properly formatted screenplay. A 
 
 * Does not format title pages at all
 
-* Does not do rich text formatting (ie. italics, bold, underline etc.) as described in the Fountain specs
-
 * Does not format dual dialogue properly
 
 * There's no error handling or anything, so be careful. It shouldn't delete anything, but just fyi.
