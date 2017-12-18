@@ -236,7 +236,18 @@ class FountainToPDF:
                 if is_centered(line, prev, fol):
                     line = line[1:-1].strip()
                     token = "CENTERED"
-                # TODO: Markdown-like text formatting (bold, italics etc.) to come later
+
+            bd_reg = re.compile(r"(([^\\]|^)\*\*.*?[^ \\]\*\*)")  # Looks for enclosing asterisks/underscores
+            fi = re.findall(bd_reg, line)
+            if fi:
+                line = '<b>' + fi[0][0].strip()[2:-2] + '</b>'
+            else:
+                it_reg = re.compile(r"(([^\\]|^)\*.*?[^ \\]\*)")  # Looks for enclosing asterisks/underscores
+                line = line.replace(r'\*', 'ESC_AST')
+                fi = re.findall(it_reg, line)
+                if fi:
+                    line = '<i>' + fi[0][0].strip()[1:-1] + '</i>'
+            
 
             # Characters have dialog following them
             if token == "CHARACTER":
