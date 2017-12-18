@@ -1,9 +1,13 @@
 import re
+from matplotlib.font_manager import findSystemFonts
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.enums import TA_LEFT, TA_CENTER 
 from reportlab.lib.units import inch
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont, TTFError
+
 
 class FountainToPDF:
 
@@ -20,6 +24,34 @@ class FountainToPDF:
         else:
             self.lines = None
 
+        try:
+            font_locations = findSystemFonts()
+            for font in font_locations:
+                if font.endswith("Courier Prime.ttf"):
+                    courier_prime_loc = font
+                elif font.endswith("Courier Prime Bold.ttf"):
+                    courier_prime_bold_loc = font
+                elif font.endswith("Courier Prime Italic.ttf"):
+                    courier_prime_italic_loc = font
+                elif font.endswith("Courier Prime Bold Italic.ttf"):
+                    courier_prime_bold_italic_loc = font
+
+            pdfmetrics.registerFont(TTFont('Courier Prime', courier_prime_loc))
+            pdfmetrics.registerFont(TTFont('Courier Prime Bold', courier_prime_bold_loc))
+            pdfmetrics.registerFont(TTFont('Courier Prime Italic', courier_prime_italic_loc))
+            pdfmetrics.registerFont(TTFont('Courier Prime Bold Italic', courier_prime_bold_italic_loc))
+            self.fontname = 'Courier Prime'
+            self.fontname_bold = 'Courier Prime Bold'
+            self.fontname_italic = 'Courier Prime Italic'
+            self.fontname_bold_italic = 'Courier Prime Bold Italic'
+            print("Using Courier Prime.")
+        except TTFError:
+            self.fontname = 'Courier'
+            self.fontname_bold = 'Courier'
+            self.fontname_italic = 'Courier'
+            self.fontname_bold_italic = 'Courier'
+            print("Courier Prime not found. Using Courier.")
+            
         self.styles = {
             'ACTION': ParagraphStyle(
                 'ACTION',
@@ -133,9 +165,20 @@ class FountainToPDF:
         tokens = []
 
         dialog_flag = False
+        meta_flag = False
+        meta_info = []
         for ix, line in enumerate(lines):
-            token = None
+            if (meta_flag and line) or (ix == 0 and re.match("^Title:", line)):
+                meta_flag = True               
+                meta_info.append(line)                
+                continue
+            elif (meta_flag and not line):
+                meta_flag = False
+                print(meta_info)
+                continue
+
             # Process forced elements first
+            token = None
             if re.match("^@", line):
                 token = "CHARACTER"
             elif re.match("^\.", line):
@@ -218,7 +261,7 @@ class FountainToPDF:
 
         def addPageNums(canvas, doc):
             canvas.saveState()
-            canvas.setFont('Courier',12)
+            canvas.setFont(self.fontname, 12)
             canvas.drawString(7.5*inch, 10.5*inch, "{}.".format(doc.page))
             canvas.restoreState()
 
